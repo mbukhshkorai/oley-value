@@ -8,6 +8,7 @@ import { PrismaModule } from './common/prisma/prisma.module';
 import { RentcastModule } from './common/rentcast/rentcast.module';
 import { AuthModule } from './auth/auth.module';
 import { ValuationsModule } from './valuations/valuations.module';
+import { LeadsModule } from './leads/leads.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { ValuationsModule } from './valuations/valuations.module';
     // Feature modules
     AuthModule,
     ValuationsModule,
+    LeadsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
