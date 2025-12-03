@@ -1,0 +1,344 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== USER MANAGEMENT ====================
+
+enum AccountType {
+  INDIVIDUAL_AGENT
+  TEAM
+  BROKERAGE
+}
+
+enum SubscriptionPlan {
+  FREE
+  PRO
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELED
+  PAST_DUE
+  TRIALING
+}
+
+model User {
+  id                String            @id @default(cuid())
+  email             String            @unique
+  passwordHash      String            @map("password_hash")
+  firstName         String            @map("first_name")
+  lastName          String            @map("last_name")
+  phone             String?
+  accountType       AccountType       @default(INDIVIDUAL_AGENT) @map("account_type")
+
+  // Profile details
+  headshotUrl       String?           @map("headshot_url")
+  company           String?
+  licenseNumber     String?           @map("license_number")
+  websiteUrl        String?           @map("website_url")
+
+  // Security
+  emailVerified     DateTime?         @map("email_verified")
+  twoFactorEnabled  Boolean           @default(false) @map("two_factor_enabled")
+  twoFactorSecret   String?           @map("two_factor_secret")
+
+  // Metadata
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
+  lastLoginAt       DateTime?         @map("last_login_at")
+
+  // Relations
+  subscription      Subscription?
+  valuations        Valuation[]
+  leads             Lead[]
+  widgets           Widget[]
+  smtpConfig        SmtpConfig?
+
+  @@map("users")
+}
+
+// ==================== BILLING & SUBSCRIPTIONS ====================
+
+model Subscription {
+  id                    String              @id @default(cuid())
+  userId                String              @unique @map("user_id")
+  user                  User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Stripe details
+  stripeCustomerId      String?             @unique @map("stripe_customer_id")
+  stripeSubscriptionId  String?             @unique @map("stripe_subscription_id")
+  stripePriceId         String?             @map("stripe_price_id")
+  stripeCurrentPeriodEnd DateTime?          @map("stripe_current_period_end")
+
+  // Plan details
+  plan                  SubscriptionPlan    @default(FREE)
+  status                SubscriptionStatus  @default(ACTIVE)
+
+  // Credits (monthly valuations)
+  monthlyCredits        Int                 @default(5) @map("monthly_credits") // 5 for FREE, 100 for PRO
+  usedCredits           Int                 @default(0) @map("used_credits")
+  additionalCredits     Int                 @default(0) @map("additional_credits") // Pay-as-you-go credits (no expiry)
+
+  // Billing cycle
+  billingAnchorDate     DateTime            @default(now()) @map("billing_anchor_date") // Anniversary billing
+  lastResetDate         DateTime            @default(now()) @map("last_reset_date")
+
+  // Metadata
+  createdAt             DateTime            @default(now()) @map("created_at")
+  updatedAt             DateTime            @updatedAt @map("updated_at")
+
+  @@map("subscriptions")
+}
+
+// ==================== VALUATIONS ====================
+
+enum ValuationSource {
+  DASHBOARD  // Created by realtor in dashboard
+  WIDGET     // Created by end-user via widget
+}
+
+enum ValuationStatus {
+  DRAFT
+  COMPLETED
+  SENT
+  VIEWED
+}
+
+enum PropertyType {
+  SINGLE_FAMILY
+  CONDO
+  TOWNHOUSE
+  MULTI_FAMILY
+  LAND
+}
+
+model Valuation {
+  id                String            @id @default(cuid())
+  userId            String            @map("user_id")
+  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Property details
+  address           String
+  fullAddress       Json              @map("full_address") // Structured address from Geoapify
+  propertyType      PropertyType?     @map("property_type")
+  beds              Int?
+  baths             Int?
+  sqft              Int?
+
+  // Valuation data (from Rentcast)
+  estimatedValue    Decimal           @map("estimated_value") @db.Decimal(12, 2)
+  valueLow          Decimal?          @map("value_low") @db.Decimal(12, 2)
+  valueHigh         Decimal?          @map("value_high") @db.Decimal(12, 2)
+  confidenceScore   Decimal?          @map("confidence_score") @db.Decimal(3, 2)
+  comparables       Json?             // Array of comparable properties
+
+  // Rentcast response cache
+  rentcastData      Json?             @map("rentcast_data") // Full API response for regeneration
+
+  // PDF & Sharing
+  pdfUrl            String?           @map("pdf_url")
+  publicShareUrl    String?           @unique @map("public_share_url") // Shareable link
+
+  // Purpose
+  purpose           String?
+
+  // Source tracking
+  source            ValuationSource   @default(DASHBOARD)
+  status            ValuationStatus   @default(COMPLETED)
+  widgetId          String?           @map("widget_id")
+  widget            Widget?           @relation(fields: [widgetId], references: [id])
+
+  // Metadata
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
+
+  // Relations
+  lead              Lead?
+
+  @@index([userId, createdAt])
+  @@map("valuations")
+}
+
+// ==================== LEAD MANAGEMENT ====================
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  LOST
+}
+
+model Lead {
+  id                String            @id @default(cuid())
+  userId            String            @map("user_id")
+  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  valuationId       String            @unique @map("valuation_id")
+  valuation         Valuation         @relation(fields: [valuationId], references: [id], onDelete: Cascade)
+
+  // Contact details
+  firstName         String            @map("first_name")
+  lastName          String            @map("last_name")
+  email             String
+  phone             String?
+
+  // Lead management
+  status            LeadStatus        @default(NEW)
+  customStatus      String?           @map("custom_status") // User-defined status label
+  statusColor       String?           @map("status_color") // Hex color for custom status
+  statusBgColor     String?           @map("status_bg_color") // Background color for badge
+
+  opportunityValue  Decimal           @map("opportunity_value") @db.Decimal(12, 2) // Default: property value * 2%
+  notes             String?           @db.Text
+
+  // Email consent
+  emailOptIn        Boolean           @default(false) @map("email_opt_in")
+
+  // Metadata
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
+  lastContactedAt   DateTime?         @map("last_contacted_at")
+
+  @@index([userId, status, createdAt])
+  @@index([email])
+  @@map("leads")
+}
+
+// ==================== WIDGETS ====================
+
+model Widget {
+  id                String            @id @default(cuid())
+  userId            String            @map("user_id")
+  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Widget configuration
+  name              String            @default("Default Widget")
+
+  // Customization
+  primaryColor      String            @default("#3B82F6") @map("primary_color")
+  secondaryColor    String?           @map("secondary_color")
+  textColor         String            @default("#111827") @map("text_color")
+  backgroundColor   String            @default("#FFFFFF") @map("background_color")
+  fontFamily        String            @default("Manrope") @map("font_family")
+
+  logoUrl           String?           @map("logo_url")
+  customMessage     String?           @map("custom_message") @db.Text
+  successMessage    String?           @map("success_message") @db.Text
+  redirectUrl       String?           @map("redirect_url") // After successful submission
+
+  // Embed code
+  embedCode         String            @unique @map("embed_code") // Generated JavaScript snippet
+
+  // Analytics
+  impressions       Int               @default(0) // Widget loads
+  submissions       Int               @default(0) // Form submissions
+  conversionRate    Decimal           @default(0) @map("conversion_rate") @db.Decimal(5, 2) // %
+
+  // Status
+  isActive          Boolean           @default(true) @map("is_active")
+
+  // Metadata
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
+
+  // Relations
+  valuations        Valuation[]
+
+  @@index([userId, isActive])
+  @@map("widgets")
+}
+
+// ==================== EMAIL CONFIGURATION ====================
+
+enum SmtpProvider {
+  GMAIL
+  OUTLOOK
+  CUSTOM
+}
+
+model SmtpConfig {
+  id                String            @id @default(cuid())
+  userId            String            @unique @map("user_id")
+  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  provider          SmtpProvider
+
+  // SMTP credentials (encrypted at application level)
+  host              String
+  port              Int
+  username          String
+  password          String            // Encrypted
+  fromEmail         String            @map("from_email")
+  fromName          String?           @map("from_name")
+
+  // OAuth tokens (for Gmail/Outlook one-click)
+  accessToken       String?           @map("access_token") @db.Text
+  refreshToken      String?           @map("refresh_token") @db.Text
+  tokenExpiry       DateTime?         @map("token_expiry")
+
+  // Status
+  isVerified        Boolean           @default(false) @map("is_verified")
+  isActive          Boolean           @default(true) @map("is_active")
+
+  // Metadata
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
+  lastTestedAt      DateTime?         @map("last_tested_at")
+
+  @@map("smtp_configs")
+}
+
+// ==================== ANALYTICS & TRACKING ====================
+
+model AnalyticsEvent {
+  id                String            @id @default(cuid())
+  userId            String?           @map("user_id")
+
+  eventType         String            @map("event_type") // widget_impression, widget_submission, pdf_download, etc.
+  eventData         Json?             @map("event_data")
+
+  // Session tracking
+  sessionId         String?           @map("session_id")
+  ipAddress         String?           @map("ip_address")
+  userAgent         String?           @map("user_agent")
+
+  // Widget tracking
+  widgetId          String?           @map("widget_id")
+
+  createdAt         DateTime          @default(now()) @map("created_at")
+
+  @@index([userId, eventType, createdAt])
+  @@index([widgetId, eventType, createdAt])
+  @@map("analytics_events")
+}
+
+// ==================== AUDIT LOG ====================
+
+model AuditLog {
+  id                String            @id @default(cuid())
+  userId            String?           @map("user_id")
+
+  action            String            // login, subscription_upgrade, lead_status_change, etc.
+  entityType        String?           @map("entity_type") // User, Lead, Valuation, etc.
+  entityId          String?           @map("entity_id")
+
+  oldValue          Json?             @map("old_value")
+  newValue          Json?             @map("new_value")
+
+  ipAddress         String?           @map("ip_address")
+  userAgent         String?           @map("user_agent")
+
+  createdAt         DateTime          @default(now()) @map("created_at")
+
+  @@index([userId, createdAt])
+  @@index([entityType, entityId])
+  @@map("audit_logs")
+}
