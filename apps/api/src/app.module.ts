@@ -8,12 +8,14 @@ import { AppService } from './app.service';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { RentcastModule } from './common/rentcast/rentcast.module';
 import { PdfModule } from './common/pdf/pdf.module';
+import { EmailModule } from './common/email/email.module';
 import { AuthModule } from './auth/auth.module';
 import { ValuationsModule } from './valuations/valuations.module';
 import { LeadsModule } from './leads/leads.module';
 import { SubscriptionsModule } from './subscriptions/subscriptions.module';
 import { BillingModule } from './billing/billing.module';
 import { WidgetsModule } from './widgets/widgets.module';
+import { SmtpModule } from './smtp/smtp.module';
 
 @Module({
   imports: [
@@ -46,6 +48,7 @@ import { WidgetsModule } from './widgets/widgets.module';
     // Common modules
     RentcastModule,
     PdfModule,
+    EmailModule,
 
     // Feature modules
     AuthModule,
@@ -54,6 +57,7 @@ import { WidgetsModule } from './widgets/widgets.module';
     SubscriptionsModule,
     BillingModule,
     WidgetsModule,
+    SmtpModule,
   ],
   controllers: [AppController],
   providers: [AppService],
