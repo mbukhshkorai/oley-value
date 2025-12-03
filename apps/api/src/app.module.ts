@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { CacheModule } from '@nestjs/cache-manager';
+import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './common/prisma/prisma.module';
@@ -9,6 +10,7 @@ import { RentcastModule } from './common/rentcast/rentcast.module';
 import { AuthModule } from './auth/auth.module';
 import { ValuationsModule } from './valuations/valuations.module';
 import { LeadsModule } from './leads/leads.module';
+import { SubscriptionsModule } from './subscriptions/subscriptions.module';
 
 @Module({
   imports: [
@@ -32,6 +34,9 @@ import { LeadsModule } from './leads/leads.module';
       ttl: 86400000, // 24 hours in milliseconds
     }),
 
+    // Task Scheduling
+    ScheduleModule.forRoot(),
+
     // Prisma
     PrismaModule,
 
@@ -42,6 +47,7 @@ import { LeadsModule } from './leads/leads.module';
     AuthModule,
     ValuationsModule,
     LeadsModule,
+    SubscriptionsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
