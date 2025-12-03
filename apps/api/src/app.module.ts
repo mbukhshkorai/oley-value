@@ -12,6 +12,7 @@ import { AuthModule } from './auth/auth.module';
 import { ValuationsModule } from './valuations/valuations.module';
 import { LeadsModule } from './leads/leads.module';
 import { SubscriptionsModule } from './subscriptions/subscriptions.module';
+import { BillingModule } from './billing/billing.module';
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { SubscriptionsModule } from './subscriptions/subscriptions.module';
     ValuationsModule,
     LeadsModule,
     SubscriptionsModule,
+    BillingModule,
   ],
   controllers: [AppController],
   providers: [AppService],
