@@ -1,5 +1,6 @@
-import { Controller, Get, Post, Delete, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Body, Param, Query, UseGuards, Request, Res, Header } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { Response } from 'express';
 import { ValuationsService } from './valuations.service';
 import { CreateValuationDto } from './dto/create-valuation.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -43,6 +44,30 @@ export class ValuationsController {
   @ApiResponse({ status: 404, description: 'Valuation not found' })
   async findByShareUrl(@Param('shareUrl') shareUrl: string) {
     return this.valuationsService.findByShareUrl(shareUrl);
+  }
+
+  @Get(':id/pdf')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Generate and download PDF for valuation' })
+  @ApiResponse({ status: 200, description: 'Returns PDF file' })
+  @ApiResponse({ status: 404, description: 'Valuation not found' })
+  @Header('Content-Type', 'application/pdf')
+  async generatePdf(
+    @Param('id') id: string,
+    @Request() req,
+    @Query('customMessage') customMessage: string,
+    @Res() res: Response,
+  ) {
+    const pdfBuffer = await this.valuationsService.generatePdf(id, req.user.userId, customMessage);
+
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename=valuation-${id}.pdf`,
+      'Content-Length': pdfBuffer.length,
+    });
+
+    res.end(pdfBuffer);
   }
 
   @Get(':id')

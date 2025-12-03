@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { RentcastService } from '../common/rentcast/rentcast.service';
+import { PdfService } from '../common/pdf/pdf.service';
 import { CreateValuationDto } from './dto/create-valuation.dto';
 import { randomBytes } from 'crypto';
 
@@ -9,6 +10,7 @@ export class ValuationsService {
   constructor(
     private prisma: PrismaService,
     private rentcastService: RentcastService,
+    private pdfService: PdfService,
   ) {}
 
   async create(userId: string, createValuationDto: CreateValuationDto) {
@@ -225,6 +227,25 @@ export class ValuationsService {
       avgPropertyValue,
       recentCount,
     };
+  }
+
+  async generatePdf(id: string, userId: string, customMessage?: string): Promise<Buffer> {
+    // Verify ownership
+    await this.findOne(id, userId);
+
+    // Generate PDF using PdfService
+    const pdfBuffer = await this.pdfService.generateValuationPdf(id, { customMessage });
+
+    // Update valuation status if needed
+    await this.prisma.valuation.update({
+      where: { id },
+      data: {
+        status: 'SENT',
+        pdfUrl: `/api/valuations/${id}/pdf`, // This will be the download endpoint
+      },
+    });
+
+    return pdfBuffer;
   }
 
   private generateShareUrl(): string {

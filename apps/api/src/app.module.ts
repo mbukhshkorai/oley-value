@@ -7,6 +7,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { RentcastModule } from './common/rentcast/rentcast.module';
+import { PdfModule } from './common/pdf/pdf.module';
 import { AuthModule } from './auth/auth.module';
 import { ValuationsModule } from './valuations/valuations.module';
 import { LeadsModule } from './leads/leads.module';
@@ -42,6 +43,7 @@ import { SubscriptionsModule } from './subscriptions/subscriptions.module';
 
     // Common modules
     RentcastModule,
+    PdfModule,
 
     // Feature modules
     AuthModule,
