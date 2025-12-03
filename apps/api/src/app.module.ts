@@ -5,7 +5,9 @@ import { CacheModule } from '@nestjs/cache-manager';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './common/prisma/prisma.module';
+import { RentcastModule } from './common/rentcast/rentcast.module';
 import { AuthModule } from './auth/auth.module';
+import { ValuationsModule } from './valuations/valuations.module';
 
 @Module({
   imports: [
@@ -32,8 +34,12 @@ import { AuthModule } from './auth/auth.module';
     // Prisma
     PrismaModule,
 
+    // Common modules
+    RentcastModule,
+
     // Feature modules
     AuthModule,
+    ValuationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
